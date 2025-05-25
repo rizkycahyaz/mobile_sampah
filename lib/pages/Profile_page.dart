@@ -45,7 +45,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> fetchProfile() async {
     final String apiUrl =
-        "http://192.168.100.62:3000/api/auth/mobile/profil?id_armada=${widget.idArmada}";
+        "http://192.168.100.153:3000/api/auth/mobile/profil?id_armada=${widget.idArmada}";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));

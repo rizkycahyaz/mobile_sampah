@@ -30,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
 
-  static const String API_BASE_URL = "http://192.168.100.62:3000/api";
+  static const String API_BASE_URL = "http://192.168.100.153:3000/api";
   static const Duration TIMEOUT_DURATION = Duration(seconds: 10);
   static const Duration ANIMATION_DELAY = Duration(milliseconds: 300);
 
@@ -157,7 +157,7 @@ Future<void> sendTracking(String idArmada) async {
     );
 
     final response = await http.post(
-      Uri.parse("http://192.168.100.62:3000/api/tracking"),
+      Uri.parse("http://192.168.100.153:3000/api/tracking"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "id_armada": idArmada,

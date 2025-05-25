@@ -64,7 +64,7 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
     }
 
     final String apiUrl =
-        "http://192.168.100.62:3000/api/riwayat/$idArmada/$statusArmada";
+        "http://192.168.100.153:3000/api/riwayat/$idArmada/$statusArmada";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
