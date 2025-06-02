@@ -14,10 +14,18 @@ class RiwayatKomersilPage extends StatefulWidget {
 class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
     with SingleTickerProviderStateMixin {
   List<dynamic> riwayat = [];
+  List<dynamic> filteredRiwayat = [];
   bool isLoading = true;
+  bool isFilterVisible = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
+  
+  // Filter variables
+  DateTime? selectedDate;
+  int? selectedMonth;
+  int? selectedYear;
+  List<int> availableYears = [];
+  
   @override
   void initState() {
     super.initState();
@@ -50,7 +58,63 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
     }
   }
 
+  void _extractAvailableYears() {
+    Set<int> years = {};
+    for (var item in riwayat) {
+      try {
+        DateTime date = DateTime.parse(item['tanggal']);
+        years.add(date.year);
+      } catch (e) {
+        // Skip invalid dates
+      }
+    }
+    availableYears = years.toList()..sort((a, b) => b.compareTo(a));
+  }
 
+  void _applyFilters() {
+    List<dynamic> filtered = List.from(riwayat);
+    
+    if (selectedYear != null || selectedMonth != null || selectedDate != null) {
+      filtered = filtered.where((item) {
+        try {
+          DateTime date = DateTime.parse(item['tanggal']);
+          
+          if (selectedYear != null && date.year != selectedYear) {
+            return false;
+          }
+          
+          if (selectedMonth != null && date.month != selectedMonth) {
+            return false;
+          }
+          
+          if (selectedDate != null) {
+            DateTime filterDate = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
+            DateTime itemDate = DateTime(date.year, date.month, date.day);
+            if (!itemDate.isAtSameMomentAs(filterDate)) {
+              return false;
+            }
+          }
+          
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+    }
+    
+    setState(() {
+      filteredRiwayat = filtered;
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      selectedDate = null;
+      selectedMonth = null;
+      selectedYear = null;
+      filteredRiwayat = List.from(riwayat);
+    });
+  }
 
   Future<void> fetchRiwayatKomersil() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -64,7 +128,7 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
     }
 
     final String apiUrl =
-        "http://192.168.100.153:3000/api/riwayat/$idArmada/$statusArmada";
+        "http://192.168.43.116:3000/api/riwayat/$idArmada/$statusArmada";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -82,8 +146,11 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
 
         setState(() {
           riwayat = rawData;
+          filteredRiwayat = List.from(rawData);
           isLoading = false;
         });
+        
+        _extractAvailableYears();
         _animationController.forward();
       } else {
         setState(() => isLoading = false);
@@ -115,8 +182,308 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
     }
   }
 
-  Widget buildRiwayatCard(Map<String, dynamic> item, int index) {
+  Widget _buildFilterSection() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      height: isFilterVisible ? null : 0,
+      child: isFilterVisible
+          ? Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.filter_list_rounded,
+                        color: const Color(0xFF006D3C),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "Filter Riwayat",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _clearFilters,
+                        child: const Text(
+                          "Reset",
+                          style: TextStyle(
+                            color: Color(0xFF006D3C),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Year Filter
+                  Text(
+                    "Tahun",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: selectedYear,
+                        hint: const Text("Pilih Tahun"),
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        items: [
+                          const DropdownMenuItem<int>(
+                            value: null,
+                            child: Text("Semua Tahun"),
+                          ),
+                          ...availableYears.map((year) {
+                            return DropdownMenuItem<int>(
+                              value: year,
+                              child: Text(year.toString()),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            selectedYear = value;
+                          });
+                          _applyFilters();
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Month Filter
+                  Text(
+                    "Bulan",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: selectedMonth,
+                        hint: const Text("Pilih Bulan"),
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        items: [
+                          const DropdownMenuItem<int>(
+                            value: null,
+                            child: Text("Semua Bulan"),
+                          ),
+                          ...List.generate(12, (index) {
+                            List<String> monthNames = [
+                              'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                              'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+                            ];
+                            return DropdownMenuItem<int>(
+                              value: index + 1,
+                              child: Text(monthNames[index]),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            selectedMonth = value;
+                          });
+                          _applyFilters();
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Date Filter
+                  Text(
+                    "Tanggal",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: Color(0xFF006D3C),
+                                onPrimary: Colors.white,
+                                surface: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          selectedDate = picked;
+                        });
+                        _applyFilters();
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            selectedDate != null 
+                                ? _formatDate(selectedDate!.toIso8601String().split('T')[0])
+                                : "Pilih Tanggal",
+                            style: TextStyle(
+                              color: selectedDate != null 
+                                  ? Colors.black87 
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                          Icon(
+                            Icons.calendar_today_rounded,
+                            color: Colors.grey.shade600,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+  }
 
+  Widget _buildFilterChips() {
+    List<Widget> chips = [];
+    
+    if (selectedYear != null) {
+      chips.add(_buildFilterChip("Tahun: $selectedYear", () {
+        setState(() {
+          selectedYear = null;
+        });
+        _applyFilters();
+      }));
+    }
+    
+    if (selectedMonth != null) {
+      List<String> monthNames = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      chips.add(_buildFilterChip("Bulan: ${monthNames[selectedMonth! - 1]}", () {
+        setState(() {
+          selectedMonth = null;
+        });
+        _applyFilters();
+      }));
+    }
+    
+    if (selectedDate != null) {
+      chips.add(_buildFilterChip("Tanggal: ${_formatDate(selectedDate!.toIso8601String().split('T')[0])}", () {
+        setState(() {
+          selectedDate = null;
+        });
+        _applyFilters();
+      }));
+    }
+    
+    if (chips.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: chips,
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, VoidCallback onRemove) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF006D3C).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF006D3C).withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF006D3C),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: onRemove,
+            child: const Icon(
+              Icons.close_rounded,
+              size: 16,
+              color: Color(0xFF006D3C),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildRiwayatCard(Map<String, dynamic> item, int index) {
     return AnimatedBuilder(
       animation: _fadeAnimation,
       builder: (context, child) {
@@ -128,7 +495,7 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
               margin: EdgeInsets.only(
                 left: 16,
                 right: 16,
-                top: index == 0 ? 16 : 8,
+                top: index == 0 ? 8 : 8,
                 bottom: 8,
               ),
               child: Material(
@@ -254,60 +621,95 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
+Widget _buildEmptyState() {
+  bool hasActiveFilters = selectedDate != null || selectedMonth != null || selectedYear != null;
+  
+  return SingleChildScrollView(
+    padding: const EdgeInsets.all(20),
+    physics: const AlwaysScrollableScrollPhysics(),
+    child: Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min, // Penting untuk hindari overflow
         children: [
+          // Illustration
           Container(
-            width: 120,
-            height: 120,
+            width: MediaQuery.of(context).size.width * 0.4, // Responsive width
+            height: MediaQuery.of(context).size.width * 0.4,
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(60),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Icon(
-              Icons.history_rounded,
-              size: 60,
+              hasActiveFilters ? Icons.search_off_rounded : Icons.history_rounded,
+              size: 40, // Ukuran lebih reasonable
               color: Colors.grey.shade400,
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            "Belum Ada Riwayat",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
+          const SizedBox(height: 20),
+          
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              hasActiveFilters ? "Data Tidak Ditemukan" : "Belum Ada Riwayat",
+              style: TextStyle(
+                fontSize: 18, // Ukuran font disesuaikan
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade700,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            "Riwayat komersil Anda akan muncul di sini",
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
+          
+          // Subtitle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              hasActiveFilters
+                  ? "Tidak ada riwayat yang sesuai dengan filter yang dipilih"
+                  : "Riwayat komersil Anda akan muncul di sini",
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _refreshData,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text("Muat Ulang"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006D3C),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          
+          // Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: SizedBox(
+              width: double.infinity, // Button full width
+              child: ElevatedButton.icon(
+                onPressed: hasActiveFilters ? _clearFilters : _refreshData,
+                icon: Icon(hasActiveFilters ? Icons.clear_all_rounded : Icons.refresh_rounded),
+                label: Text(hasActiveFilters ? "Hapus Filter" : "Muat Ulang"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF006D3C),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLoadingState() {
     return Center(
@@ -357,6 +759,17 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
         ),
         actions: [
           IconButton(
+            onPressed: () {
+              setState(() {
+                isFilterVisible = !isFilterVisible;
+              });
+            },
+            icon: Icon(
+              isFilterVisible ? Icons.filter_list_off_rounded : Icons.filter_list_rounded,
+            ),
+            tooltip: "Filter",
+          ),
+          IconButton(
             onPressed: _refreshData,
             icon: const Icon(Icons.refresh_rounded),
             tooltip: "Muat Ulang",
@@ -384,17 +797,25 @@ class _RiwayatKomersilPageState extends State<RiwayatKomersilPage>
       body: RefreshIndicator(
         onRefresh: _refreshData,
         color: const Color(0xFF006D3C),
-        child: isLoading
-            ? _buildLoadingState()
-            : riwayat.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: riwayat.length,
-                    padding: const EdgeInsets.only(bottom: 16),
-                    itemBuilder: (context, index) =>
-                        buildRiwayatCard(riwayat[index], index),
-                  ),
+        child: Column(
+          children: [
+            _buildFilterSection(),
+            _buildFilterChips(),
+            Expanded(
+              child: isLoading
+                  ? _buildLoadingState()
+                  : filteredRiwayat.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: filteredRiwayat.length,
+                          padding: const EdgeInsets.only(bottom: 16),
+                          itemBuilder: (context, index) =>
+                              buildRiwayatCard(filteredRiwayat[index], index),
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -32,7 +32,7 @@ class _EditRiwayatPageState extends State<EditRiwayatPage> {
   Future<void> _submitUpdate() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final url = Uri.parse("http://10.251.134.131:3000/api/komersil/update/${widget.data['id']}");
+    final url = Uri.parse("http://192.168.43.116:3000/api/komersil/update/${widget.data['id']}");
     final response = await http.post(
       url,
       body: {

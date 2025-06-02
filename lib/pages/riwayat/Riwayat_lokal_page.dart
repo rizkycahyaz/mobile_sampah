@@ -32,7 +32,7 @@ class _RiwayatLokalPageState extends State<RiwayatLokalPage> {
     }
 
     final String apiUrl =
-        "http://192.168.1.10:3000/api/riwayat/$idArmada/$statusArmada";
+        "http://192.168.43.116:3000/api/riwayat/$idArmada/$statusArmada";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));

@@ -45,7 +45,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> fetchProfile() async {
     final String apiUrl =
-        "http://192.168.100.153:3000/api/auth/mobile/profil?id_armada=${widget.idArmada}";
+        "http://192.168.43.116:3000/api/auth/mobile/profil?id_armada=${widget.idArmada}";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -433,7 +433,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
             Text(
-              profileData!["nama"] ?? "Nama Tidak Tersedia",
+              profileData!["name"] ?? "Nama Tidak Tersedia",
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
