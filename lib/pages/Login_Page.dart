@@ -127,17 +127,58 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? idArmada = prefs.getString('id_armada');
+      String? namaArmada = prefs.getString('name');
 
-      if (idArmada != null && mounted) {
+      if (idArmada != null && namaArmada != null && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => NavbarPage(idArmada: idArmada)),
+          MaterialPageRoute(builder: (context) => NavbarPage(
+            idArmada: idArmada,
+            namaArmada: namaArmada,
+          )),
         );
       }
     } catch (e) {
       debugPrint('Error checking login status: $e');
     }
   }
+
+  // Future<void> sendTracking(String idArmada) async {
+  //   try {
+  //     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  //     if (!serviceEnabled) return;
+
+  //     LocationPermission permission = await Geolocator.checkPermission();
+  //     if (permission == LocationPermission.denied) {
+  //       permission = await Geolocator.requestPermission();
+  //       if (permission == LocationPermission.denied) return;
+  //     }
+
+  //     if (permission == LocationPermission.deniedForever) return;
+
+  //     Position position = await Geolocator.getCurrentPosition(
+  //       desiredAccuracy: LocationAccuracy.high,
+  //     );
+
+  //     final response = await http.post(
+  //       Uri.parse("http://192.168.43.116:3000/api/tracking"),
+  //       headers: {"Content-Type": "application/json"},
+  //       body: jsonEncode({
+  //         "id_armada": idArmada,
+  //         "latitude": position.latitude,
+  //         "longitude": position.longitude,
+  //       }),
+  //     );
+
+  //     if (response.statusCode == 200) {
+  //       print("Tracking terkirim!");
+  //     } else {
+  //       print("Gagal kirim tracking");
+  //     }
+  //   } catch (e) {
+  //     print("Error kirim tracking: $e");
+  //   }
+  // }
 
 Future<void> sendTracking(String idArmada) async {
   try {
@@ -164,7 +205,7 @@ Future<void> sendTracking(String idArmada) async {
         "latitude": position.latitude,
         "longitude": position.longitude,
       }),
-    );
+    ).timeout(TIMEOUT_DURATION);
 
     if (response.statusCode == 200) {
       print("Tracking terkirim!");
@@ -175,7 +216,6 @@ Future<void> sendTracking(String idArmada) async {
     print("Error kirim tracking: $e");
   }
 }
-
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -231,9 +271,14 @@ Future<void> sendTracking(String idArmada) async {
       if (response.statusCode == 200 && responseData["success"] == true) {
         String idArmada = responseData["user"]["id_armada"].toString();
         String statusArmada = responseData["user"]["status_armada"].toString();
+        String namaArmada = responseData["user"]["name"].toString();
 
-        await saveUserSession(idArmada, statusArmada);
-        await sendTracking(idArmada); // ← kirim lokasi otomatis
+        await saveUserSession(idArmada, statusArmada, namaArmada);
+      //  await sendTracking(idArmada);
+       // Menjalankan sendTracking setelah login berhasil
+      Future.delayed(Duration(seconds: 1), () async {
+        await sendTracking(idArmada);
+      });
         HapticFeedback.mediumImpact();
         
         _showAlert("Login Berhasil", "Selamat datang kembali!", isError: false);
@@ -243,7 +288,10 @@ Future<void> sendTracking(String idArmada) async {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => NavbarPage(idArmada: idArmada)),
+            MaterialPageRoute(builder: (context) => NavbarPage(
+              idArmada: idArmada,
+              namaArmada: namaArmada,
+            )),
           );
         }
       } else {
@@ -267,17 +315,19 @@ Future<void> sendTracking(String idArmada) async {
     }
   }
 
-  Future<void> saveUserSession(String idArmada, String statusArmada) async {
+  Future<void> saveUserSession(String idArmada, String statusArmada, String namaArmada) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('id_armada', idArmada);
       await prefs.setString('status_armada', statusArmada);
+      await prefs.setString('name', namaArmada);
       await prefs.setString('login_time', DateTime.now().toIso8601String());
       
-      await prefs.setBool('remember_me', _rememberMe);
       if (_rememberMe) {
+        await prefs.setBool('remember_me', true);
         await prefs.setString('saved_email', emailController.text.trim());
       } else {
+        await prefs.remove('remember_me');
         await prefs.remove('saved_email');
       }
     } catch (e) {
@@ -348,51 +398,6 @@ Future<void> sendTracking(String idArmada) async {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _handleForgotPassword() {
-    HapticFeedback.lightImpact();
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        final TextEditingController resetEmailController = TextEditingController();
-        
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text("Reset Password"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text("Masukkan email Anda untuk reset password"),
-              SizedBox(height: 16),
-              TextField(
-                controller: resetEmailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: "Email",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text("Batal"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _showAlert("Info", "Link reset password telah dikirim ke email Anda", isError: false);
-              },
-              child: Text("Kirim"),
             ),
           ],
         );
@@ -608,52 +613,6 @@ Future<void> sendTracking(String idArmada) async {
                                         validator: _validatePassword,
                                       ),
                                       SizedBox(height: 12),
-                                      
-                                      // Remember Me & Forgot Password
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Transform.scale(
-                                                scale: 0.9,
-                                                child: Checkbox(
-                                                  value: _rememberMe,
-                                                  onChanged: isLoading ? null : (value) {
-                                                    setState(() {
-                                                      _rememberMe = value ?? false;
-                                                    });
-                                                    HapticFeedback.selectionClick();
-                                                  },
-                                                  activeColor: Color(0xFF006D3C),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                ),
-                                              ),
-                                              Text(
-                                                "Remember me",
-                                                style: TextStyle(
-                                                  color: Colors.grey.shade600,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          TextButton(
-                                            onPressed: isLoading ? null : _handleForgotPassword,
-                                            child: Text(
-                                              "Forgot Password?",
-                                              style: TextStyle(
-                                                color: Color(0xFF006D3C),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 24),
                                       
                                       // Login Button
                                       Container(

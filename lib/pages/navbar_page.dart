@@ -10,8 +10,13 @@ import 'dart:convert';
 
 class NavbarPage extends StatefulWidget {
   final String? idArmada;
+  final String? namaArmada; // Tambahkan parameter namaArmada
 
-  const NavbarPage({Key? key, this.idArmada}) : super(key: key);
+  const NavbarPage({
+    Key? key, 
+    this.idArmada,
+    this.namaArmada, // Tambahkan parameter ini
+  }) : super(key: key);
 
   @override
   _NavbarPageState createState() => _NavbarPageState();
@@ -21,6 +26,7 @@ class _NavbarPageState extends State<NavbarPage> {
   int _selectedIndex = 0;
   String? idArmada;
   String? statusArmada;
+  String? namaArmada; // Tambahkan variabel untuk menyimpan nama armada
   Timer? _trackingTimer;
 
   @override
@@ -33,21 +39,23 @@ class _NavbarPageState extends State<NavbarPage> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? storedId = prefs.getString('id_armada');
     String? storedStatus = prefs.getString('status_armada');
+    String? storedNama = prefs.getString('nama') ?? widget.namaArmada; // Ambil nama dari SharedPreferences
 
     if (storedId != null && storedStatus != null) {
       setState(() {
         idArmada = storedId;
         statusArmada = storedStatus;
+        namaArmada = storedNama; // Gunakan nilai dari SharedPreferences atau dari widget
       });
 
-      startTrackingPeriodic(storedId); // ⬅️ Mulai tracking otomatis
+      startTrackingPeriodic(storedId);
     }
   }
 
   void startTrackingPeriodic(String idArmada) {
-    _trackingTimer?.cancel(); // hentikan timer lama jika ada
+    _trackingTimer?.cancel();
 
-    _trackingTimer = Timer.periodic(Duration(minutes: 5), (Timer timer) async {
+    _trackingTimer = Timer.periodic(Duration(seconds: 60), (Timer timer) async {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       LocationPermission permission = await Geolocator.checkPermission();
 
@@ -62,7 +70,7 @@ class _NavbarPageState extends State<NavbarPage> {
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      final url = Uri.parse('http://192.168.100.153:3000/api/tracking');
+      final url = Uri.parse('http://192.168.43.116:3000/api/tracking');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -83,7 +91,7 @@ class _NavbarPageState extends State<NavbarPage> {
 
   @override
   void dispose() {
-    _trackingTimer?.cancel(); // stop timer saat widget dihancurkan
+    _trackingTimer?.cancel();
     super.dispose();
   }
 
@@ -97,7 +105,9 @@ class _NavbarPageState extends State<NavbarPage> {
       statusArmada == '1'
           ? RiwayatLokalPage()
           : RiwayatKomersilPage(),
-      ProfilePage(idArmada: idArmada!),
+      ProfilePage(
+        idArmada: idArmada!,
+      ),
     ];
 
     return Scaffold(

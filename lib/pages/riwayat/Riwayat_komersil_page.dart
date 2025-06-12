@@ -750,6 +750,7 @@ Widget _buildEmptyState() {
         elevation: 0,
         backgroundColor: const Color(0xFF006D3C),
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
         title: const Text(
           "Riwayat Komersil",
           style: TextStyle(

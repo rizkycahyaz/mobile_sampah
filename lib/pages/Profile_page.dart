@@ -19,11 +19,13 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isLoading = true;
   String errorMessage = "";
   String statusArmada = "Tidak Tersedia";
+  String? nama;
 
   @override
   void initState() {
     super.initState();
     _loadStatusArmada();
+    getNamaFromPrefs();
     fetchProfile();
   }
 
@@ -42,6 +44,14 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     }
   }
+
+ Future<void> getNamaFromPrefs() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    nama = prefs.getString('name'); // <-- pakai 'name', sesuai yg disimpan
+  });
+}
+
 
   Future<void> fetchProfile() async {
     final String apiUrl =
@@ -225,7 +235,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildQRCode(profileData!["qr_code"], 280),
                       const SizedBox(height: 20),
                       Text(
-                        profileData!["nama"] ?? "Nama Tidak Tersedia",
+                         nama ?? "Nama Tidak Tersedia",
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -261,6 +271,7 @@ class _ProfilePageState extends State<ProfilePage> {
         elevation: 0,
         backgroundColor: const Color(0xFF006D3C),
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
         title: const Text(
           "Profile Armada",
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -433,7 +444,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
             Text(
-              profileData!["name"] ?? "Nama Tidak Tersedia",
+              nama ?? "Nama Tidak Tersedia",
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
